@@ -1,0 +1,47 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local notebooks and notebook caches
+.ipynb_checkpoints/
+*.ipynb
+
+# Generated outputs
+visualization_outputs/
+outputs/
+results/
+logs/
+checkpoints/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pth
+*.pt
+*.pkl
+
+# README assets are intentionally committed.
+!docs/
+!docs/figures/
+!docs/figures/*.png
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor/OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
