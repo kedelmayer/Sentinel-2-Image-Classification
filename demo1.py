@@ -157,17 +157,19 @@ plt.tight_layout()
 plt.show()
 
 # Perform histogram comparison between the Annual Crop and River edge histograms.
-eDistance = pairwise.euclidean_distances(histograms[0], histograms[3],          # Euclidean Distance
-                                         Y_norm_squared=None, squared=False, X_norm_squared=None)
-mDistance = pairwise.manhattan_distances(histograms[0], histograms[3])          # Manhattan Distance
-cDistance = pairwise.paired_cosine_distances(histograms[0], histograms[3])      # Cosine Distance
+h1 = histograms[0][0].reshape(1, -1)    # Reshape the Annual Crop histogram array to (1,36)
+h4 = histograms[3][0].reshape(1, -1)    # Reshape the River histogram array to (1,36)
+
+eDistance = pairwise.euclidean_distances(h1, h4)        # Calculate Euclidean Distance
+mDistance = pairwise.manhattan_distances(h1, h4)        # Calculate Manhattan Distance
+cDistance = pairwise.cosine_distances(h1, h4)           # Calculate Cosine Distance
 
 print("--------------------------------------------------------------")
 print("     Histogram Comparison Analysis: Annual Crop and River     ")
 print("--------------------------------------------------------------")
-print(" Euclidean Distance:  "+str(eDistance))
-print(" Manhattan Distance:  "+str(mDistance))
-print(" Cosine Distance:  "+str(cDistance))
+print(" Euclidean Distance:  "+str(eDistance[0][0]))
+print(" Manhattan Distance:  "+str(mDistance[0][0]))
+print(" Cosine Distance:  "+str(cDistance[0][0]))
 print("--------------------------------------------------------------")
 
 
