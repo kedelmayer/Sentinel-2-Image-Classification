@@ -25,7 +25,7 @@ def randomHistBunch(lands, num_images, rand=True):
     data = []
     target = []
     count = 0
-    if random:
+    if rand:
         for i in lands:                                                     # Iterate through lands
             set = "EuroSAT_RGB/"+i+"/"
             for j in range(0, num_images):
