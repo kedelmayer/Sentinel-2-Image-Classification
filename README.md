@@ -17,10 +17,10 @@ sentinel_2_image_classification/
 ├── model.py                  # Core image classification model [Work in Progress].
 ├── demo1.py                  # Data Preparation and Feature Extraction demonstration.
 ├── demo2.py                  # Model Performance Evaluation demonstration.
-├── demo3.py                  # Association Analysis, Deep Learning, and LLM-Based Text Classification demonstration.
+├── demo3.py                  # Association Analysis, Deep Learning, and LLM-Based Classification demonstration.
 ├── config.json               # Model configuration file, used to adjust randomly chosen class sets.
 ├── EuroSAT_RGB               # Extracted satellite data, classified into folders.
-├── text                      # Sample tweet data, used in the demos to display machine learning concepts with text.
+├── text                      # Sample tweet and transaction data, used for demonstrations.
 ├── requirements.txt
 └── README.md
 ```
