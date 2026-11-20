@@ -1,4 +1,4 @@
-import os, random, json
+import os, random
 import numpy as np
 import pandas as pd
 import matplotlib.image as mpimg

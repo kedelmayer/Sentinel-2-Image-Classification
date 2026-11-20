@@ -1,118 +1,94 @@
-import os, random, json
+import json, os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import numpy as np
 import pandas as pd
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-from skimage import filters, exposure
-from skimage.color import rgb2gray
-from sklearn.utils import Bunch
-from sklearn.decomposition import PCA
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Rescaling, Conv2D, MaxPooling2D, Dense, Flatten
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
      
-# Outputs n randomly selected images from each land specified in config.json.
-#   Return: An array of images.
-def randomSet():
-    with open("config.JSON", "r") as f:         #Loads data from config.json
-        config = json.load(f)
-
-    images = []
-    for i in config['Lands']:                   # Randomly selects images
-        set = "EuroSAT_RGB/"+i+"/"
-        for j in range(0, config['images_per_land']):
-            img = mpimg.imread(set+random.choice(os.listdir(set)))
-            images.append(img)
-    return images
-
-
-# Randomly selects n images each from each land specified in config.json
-# and extracts their edge histograms and target classes.
-#   Return: A Bunch object containing an array of histograms, an array 
-#       of classes, a Pandas DataFrame containing the histograms and classes,
-#       and an array containing the names of the target classes.
-def randomHistBunch():
-    with open("config.json", "r") as f:                                 # Loads data from config.json
-        config = json.load(f)
-
-    data = []
-    target = []
-    count = 0
-    for i in config['Lands']:                                           # Iterate through lands
-        set = "EuroSAT_RGB/"+i+"/"
-        for j in range(0, config['images_per_land']):
-            img = mpimg.imread(set+random.choice(os.listdir(set)))      # Randomly select images
-            hist, c = histogram(img, config['bins'])                    # Extract image's edge histogram and bin centers
-            data.append(hist)                                           # Add histogram to array
-            target.append(count)                                        # Add class to array
-        count = count+1
-
-    data_df = pd.DataFrame(data, columns=list(range(config['bins'])), copy=False)   # Assemble histogram DataFrame
-    target_df = pd.DataFrame(target, columns=["target"])                # Assemble target DataFrame
-    combined_df = pd.concat([data_df, target_df], axis=1)               # Combine DataFrames
-    X = combined_df[list(range(config['bins']))]
-    y = combined_df[["target"]]
-
-    if y.shape[1] == 1:
-        y = y.iloc[:, 0]
-
-    return Bunch( data=X, target=y, frame=combined_df, target_names=config['Lands'])
-
-
-# Calculates the angles between horizontal and vertical operators.
-#   Return: Calculated angle.
-def angle(dx, dy):
-    return np.mod(np.arctan2(dy, dx), np.pi)
-
-
-# Extracts an image's edge histogram.
-#   img: The image to extract the histogram from.
-#   Return: An array containing an array of histogram 
-#       values and an array of bin center values.
-def histogram(img, bins):
-    gray = rgb2gray(img)                                                # Convert color images to grayscale
-    angles = angle(filters.sobel_h(gray), filters.sobel_v(gray))        # Obtain an angle for each pixel in the images
-    hist = exposure.histogram(angles, nbins=bins, source_range='image', 
-                                   normalize=False, channel_axis=None)  # Obtain edge histograms
-    return(hist)
-
-
-# Plots the 2D points from a dimensionally-reduced edge histogram, using different
-# colors for data from the different classes.
-#   histogramBunch: A Bunch object containing the histogram and class data.
-#   reducedSet: An array containing the PCA-Reduced set of edge histograms.
-def plot_PCA(histogramBunch, reducedSet):
-    fig = plt.figure(1, figsize=(8, 6))                                 
-    ax = fig.add_subplot()
-    scatter = ax.scatter(
-        reducedSet[:, 0],                                   # Plot the points
-        reducedSet[:, 1],
-        c=histogramBunch.target,                            # Use target array to color points
-        s=40
-    )
-
-    ax.set(                                                 # Add titles
-        title="PCA-Reduced Feature Visualization",
-        xlabel="1st Principal Component",
-        ylabel="2nd Principal Component",
-    )
-    ax.xaxis.set_ticklabels([])                             # Add Tick Labels
-    ax.yaxis.set_ticklabels([])
-
-    legend1 = ax.legend(                                    # Add a legend
-        scatter.legend_elements()[0],
-        histogramBunch.target_names,
-        loc="upper right",
-        title="Land Cover",
-    )
-    ax.add_artist(legend1)
-    plt.show()                                              # Show the plot
-
-
+# Plots the training and validation loss or accuracy of a model.fit history object.
+#   ax: The axis to plot on.
+#   output: A model.fit history object containing a model's training and validation loss by epoch.
+#   metric: A string containing the metric to plot. May be "Loss" or "Accuracy". Default "Loss".
+def plot_output(ax, output, metric="Loss"):
+    if metric == "Loss":
+        ax.plot(output.history['loss'], label="Training Loss", color="#747575", linewidth=2, linestyle='-')
+        ax.plot(output.history['val_loss'], label="Validation Loss", color="#c70c1f", linewidth=2, linestyle='-')
+        ax.legend(loc='upper right', fontsize='large')
+    if metric == "Accuracy":
+        ax.plot(output.history['accuracy'], label="Training Accuracy", color="#747575", linewidth=2, linestyle='-')
+        ax.plot(output.history['val_accuracy'], label="Validation Accuracy", color="#c70c1f", linewidth=2, linestyle='-')
+        ax.legend(loc='lower right', fontsize='large')
+    ax.set_xlabel("Epoch", fontsize=12)
+    ax.set_ylabel(metric, fontsize=12)
+    ax.tick_params(axis='both', which='major', labelsize=8)
 
 ## ------------------------------------------------------------------------------------------------ ##
-## Dimensionality Reduction using Principal Component Analysis (PCA) ##
+with open("config.JSON", "r") as f:                                                     # Loads data from config.json
+    config = json.load(f)
 
-histogramBunch = randomHistBunch()                                      # Randomly select an image set and extract edge histograms
-reducedSet = PCA(n_components=2).fit_transform(histogramBunch.data)     # Reduce the histogram set to 2 dimensions
+num_classes = len(config['Lands'])
+num_epochs = config['epochs']
 
-plot_PCA(histogramBunch, reducedSet)                                    # Plot the 2D points using a different color for each class
+# Prepare training dataset.
+train_ds = tf.keras.utils.image_dataset_from_directory(
+  'EuroSAT_RGB',                                                                        # Image directory
+  class_names=config['Lands'],                                                          # Classes to select from
+  validation_split=0.2,
+  subset="training",
+  seed=123,
+  image_size=(64, 64),
+  batch_size=64)
+
+# Prepare validation dataset.
+val_ds = tf.keras.utils.image_dataset_from_directory(
+  'EuroSAT_RGB',                                                                        # Image directory
+  class_names=config['Lands'],                                                          # Classes to select from
+  validation_split=0.2,
+  subset="validation",
+  seed=123,
+  image_size=(64, 64),
+  batch_size=64)
+
+# Initialize the model.
+model = Sequential([
+    Rescaling(1./255),                                                                  # Standardize RGB values to range [0,1]
+    Conv2D(8, 3, activation='relu'),                                                    # Convolutional layer with 8 filters of size 3x3
+    MaxPooling2D(pool_size=2),                                                          # Max pooling layer with pool size 2x2
+    Conv2D(8, 3, activation='relu'),                                                    # Convolutional layer with 8 filters of size 3x3
+    MaxPooling2D(pool_size=2),                                                          # Max pooling layer with pool size 2x2
+    Conv2D(8, 3, activation='relu'),                                                    # Convolutional layer with 8 filters of size 3x3
+    MaxPooling2D(pool_size=2),                                                          # Max pooling layer with pool size 2x2
+    Flatten(),                                                                          # Flatten the layer
+    Dense(128, activation='relu'),                                                      # Fully connected hidden layer with 128 neurons
+    Dense(64, activation='relu'),                                                       # Fully connected hidden layer with 64 neurons
+    Dense(16, activation='relu'),                                                       # Fully connected hidden layer with 16 neurons
+    Dense(num_classes, activation='softmax'),                                           # Output layer with softmax activation
+])
+
+# Compile the model using Adam optimizer and categorical cross-entropy loss.
+model.compile('adam', loss=SparseCategoricalCrossentropy, metrics=['accuracy'])
+
+# Fit the model.
+print(f"Training Model")
+output1 = model.fit(train_ds, validation_data=val_ds, epochs=num_epochs)
+
+# Plot training results and report the final training and validation accuracies and losses.
+fig, axs = plt.subplots(2,1,figsize=(16, 6))
+fig.suptitle('Training Result Comparison', fontsize=16)
+plot_output(axs[0], output1, "Accuracy")
+plot_output(axs[1], output1, "Loss")
+plt.tight_layout()
+plt.show()
+
+# Show final training and validation accuracy and loss.
+table = [[output1.history['accuracy'][num_epochs-1], output1.history['val_accuracy'][num_epochs-1], 
+          output1.history['loss'][num_epochs-1], output1.history['val_loss'][num_epochs-1]]]
+df = pd.DataFrame(table, columns =['Final Training Accuracy', 'Final Validation Accuracy', 'Final Training Loss', 'Final Validation Loss'])
+print(df)
 
 
