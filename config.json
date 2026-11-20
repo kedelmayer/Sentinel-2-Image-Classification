@@ -1,6 +1,5 @@
 {
-  "images_per_land": 100,
-  "bins": 400,
+  "epochs": 20,
   "Lands": [
     "AnnualCrop",
     "Forest",
